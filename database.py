@@ -3,7 +3,7 @@ import time
 
 class Database:
     def __init__(self):
-        self.connection = mariadb.connect(user='valiets', password='******', database='valiets_db')
+        self.connection = mariadb.connect(host='145.132.98.80', user='valiets', password='********', database='valiets_db', port=54432)
         self.cursor = self.connection.cursor()
     
     
@@ -15,7 +15,7 @@ class Database:
         residents = self.cursor.fetchall()
         
         for resident in residents:
-            resident_data.append(( resident[0], resident[2] + ' ' + resident[1], resident[3], resident[4] ))
+            resident_data.append(( resident[0], resident[1], resident[2], resident[3], resident[4], resident[5] ))
         
         return resident_data
     
@@ -39,7 +39,12 @@ class Database:
         return row[1]
     
     def get_mac_address(self, resident_id):
-        return self.get_newest_wearable(resident_id)[2]
+        wearable = self.get_newest_wearable(resident_id)
+        
+        if wearable:
+            return wearable[2]
+        else:
+            return None
     
     
     
@@ -70,8 +75,8 @@ class Database:
     
     def update_fall(self, resident_id, coming):
         if coming:
-            self.cursor.execute('UPDATE `resident_falls` SET `response_time`=%s WHERE `resident_id`=%s;', ( time.strftime('%Y-%m-%d %H:%M:%S'), resident_id ))
+            self.cursor.execute('UPDATE `resident_falls` SET `response_time`=%s WHERE `resident_id`=%s ORDER BY `id` DESC LIMIT 1;', ( time.strftime('%Y-%m-%d %H:%M:%S'), resident_id ))
         else:
-            self.cursor.execute('UPDATE `resident_falls` SET `finished_time`=%s WHERE `resident_id`=%s;', ( time.strftime('%Y-%m-%d %H:%M:%S'), resident_id ))
+            self.cursor.execute('UPDATE `resident_falls` SET `finished_time`=%s WHERE `resident_id`=%s ORDER BY `id` DESC LIMIT 1;', ( time.strftime('%Y-%m-%d %H:%M:%S'), resident_id ))
         
         self.connection.commit()

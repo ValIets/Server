@@ -2,6 +2,7 @@ import queue
 import socket
 import threading
 import traceback
+from utils import log
 
 class ThreadedSocket(threading.Thread):
     def __init__(self, queue, parent_queue, connection, database_connection):
@@ -33,20 +34,20 @@ class ThreadedServer(threading.Thread):
     def run(self):
         sock = socket.socket()
         sock.bind((self.host, self.port))
-        sock.listen()
+        sock.listen(3)
         
-        print(vars(self.socket_type)['log_prefix'] + ' Server ready and listening')
+        log(vars(self.socket_type)['log_prefix'] + ' Server ready and listening')
         
         while True:
             try:
                 connection, address = sock.accept()
-                print(vars(self.socket_type)['log_prefix'] + ' New connection from ' + str(address[0]) + ':' + str(address[1]))
+                log(vars(self.socket_type)['log_prefix'] + ' New connection from ' + str(address[0]) + ':' + str(address[1]))
                 
                 thread = self.socket_type(queue.Queue(), self.queue, connection, self.database_connection)
                 self.threads.append(thread)
                 thread.start()
             except:
-                traceback.print_exc()
+                log(traceback.format_exc())
     
     def send_all(self, msg):
         thread_count = len(self.threads)
@@ -57,7 +58,7 @@ class ThreadedServer(threading.Thread):
             if thread.isAlive():
                 thread.queue.put(msg)
             else:
-                print(vars(self.socket_type)['log_prefix'] + ' Dropped connection from ' + str(thread.address[0]) + ':' + str(thread.address[1]))
+                log(vars(self.socket_type)['log_prefix'] + ' Dropped connection from ' + str(thread.address[0]) + ':' + str(thread.address[1]))
                 del self.threads[thread_count-1 - i]
     
     def send_one(self, identifier, msg):

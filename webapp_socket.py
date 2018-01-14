@@ -4,6 +4,8 @@ import json
 import queue
 import threaded_server
 import time
+import traceback
+from utils import log
 
 class WebAppSocket(threaded_server.ThreadedSocket):
     log_prefix = '[WBPP]'
@@ -25,13 +27,17 @@ class WebAppSocket(threaded_server.ThreadedSocket):
                 
                 try:
                     msg_bytes = self.connection.recv(1024)
-                    msg = self.decode_message(msg_bytes)
+                    ( msg, opcode ) = self.decode_message(msg_bytes)
                     
-                    if len(msg) > 0:
-                        self.parent_queue.put(msg)
+                    if msg and len(msg) > 0:
+                        if opcode == 0x09:
+                            self.send(msg, 0x0A)
+                        else:
+                            self.parent_queue.put(msg)
                 except BlockingIOError:
                     time.sleep(0.01)
         except:
+            log(traceback.format_exc())
             self.connection.close()
     
     
@@ -58,7 +64,9 @@ class WebAppSocket(threaded_server.ThreadedSocket):
     
     def decode_message(self, message_bytes):
         if len(message_bytes) <= 1:
-            return
+            return ( None, 0 )
+        
+        opcode = message_bytes[0] & 0b00001111
         
         message_length = message_bytes[1] & 127
         
@@ -78,13 +86,13 @@ class WebAppSocket(threaded_server.ThreadedSocket):
         for i in range(first_data, len(message_bytes)):
             characters.append(chr(message_bytes[i] ^ masks[(i - first_data) % 4]))
         
-        return ''.join(characters)
+        return (''.join(characters), opcode )
     
-    def send(self, message):
+    def send(self, message, opcode=1):
         message = str(message)
         
         send_bytes = []
-        send_bytes.append(129)
+        send_bytes.append(128 + opcode)
         
         message_bytes = message.encode()
         message_length = len(message_bytes)
@@ -126,7 +134,7 @@ class WebAppSocket(threaded_server.ThreadedSocket):
             if not wearable is None:
                 low_battery = (wearable[3] == 1)
             
-            residents_array.append({ 'id': resident[0], 'name': resident[1], 'section': resident[2], 'address': resident[3], 'fallen': (status > 0), 'coming': (status == 2), 'low_battery': low_battery })
+            residents_array.append({ 'id': resident[0], 'firstname': resident[1], 'surname': resident[2], 'section': resident[3], 'address': resident[4], 'is_fallen': (status > 0), 'is_coming': (status == 2), 'low_battery': low_battery, 'birthday': resident[5].isoformat() })
         
         resident_dict['residents'] = residents_array
         json_data = json.dumps(resident_dict)
